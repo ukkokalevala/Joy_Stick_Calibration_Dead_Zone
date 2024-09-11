@@ -1,0 +1,72 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+#define OLED_I2C_ADDRESS 0x3C  // Change if needed
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// Pin assignments for joystick
+const int joystickXPin = 3; // Replace with your ADC pin for X-axis
+const int joystickYPin = 4; // Replace with your ADC pin for Y-axis
+
+int minX = 4095, maxX = 0, minY = 4095, maxY = 0;
+
+// Define dead zone threshold (small range around the center)
+const int DEAD_ZONE = 50; // Adjust as necessary
+
+void setup() {
+  Serial.begin(115200);
+  
+  // Initialize I2C with custom pins (GPIO 21 for SDA, GPIO 20 for SCL)
+  Wire.begin(21, 20);
+  
+  // Initialize OLED display
+  if(!display.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDRESS)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;);
+  }
+  
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+}
+
+void loop() {
+  // Read joystick values
+  int rawX = analogRead(joystickXPin);
+  int rawY = analogRead(joystickYPin);
+
+  // Automatic calibration for X and Y axes
+  if (rawX < minX) minX = rawX;
+  if (rawX > maxX) maxX = rawX;
+  if (rawY < minY) minY = rawY;
+  if (rawY > maxY) maxY = rawY;
+
+  // Apply dead zone to filter out small movements
+  int calibratedX = map(rawX, minX, maxX, -100, 100);
+  int calibratedY = map(rawY, minY, maxY, -100, 100);
+
+  if (abs(calibratedX) < DEAD_ZONE) calibratedX = 0;
+  if (abs(calibratedY) < DEAD_ZONE) calibratedY = 0;
+
+  // Display the values on the OLED
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.print("Joystick X: ");
+  display.println(calibratedX);
+  display.print("Joystick Y: ");
+  display.println(calibratedY);
+
+  // Optional: Draw a dot representing joystick position
+  int xPos = map(calibratedX, -100, 100, 0, SCREEN_WIDTH);
+  int yPos = map(calibratedY, -100, 100, 0, SCREEN_HEIGHT);
+  display.fillCircle(xPos, yPos, 2, SSD1306_WHITE);
+
+  display.display();
+
+  delay(100);  // Adjust delay as needed
+}
