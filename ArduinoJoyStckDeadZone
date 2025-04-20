@@ -1,0 +1,58 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+#define OLED_I2C_ADDRESS 0x3C
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// Joystick connected to analog pins A0 and A1
+const int joystickXPin = A0;
+const int joystickYPin = A1;
+
+const int DEAD_ZONE = 10;  // ~1% dead zone for 10-bit ADC
+
+void setup() {
+  Serial.begin(9600);
+  
+  // Initialize display
+  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDRESS)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for (;;);
+  }
+
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+}
+
+void loop() {
+  int rawX = analogRead(joystickXPin); // 0 to 1023
+  int rawY = analogRead(joystickYPin); // 0 to 1023
+
+  // Map to -100 to 100
+  int xVal = map(rawX, 0, 1023, -100, 100);
+  int yVal = map(rawY, 0, 1023, -100, 100);
+
+  // Apply dead zone
+  if (abs(xVal) < DEAD_ZONE) xVal = 0;
+  if (abs(yVal) < DEAD_ZONE) yVal = 0;
+
+  // Display text
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.print("Joystick X: "); display.println(xVal);
+  display.print("Joystick Y: "); display.println(yVal);
+
+  // Draw dot based on mapped value
+  int xPos = map(xVal, -100, 100, 0, SCREEN_WIDTH);
+  int yPos = map(yVal, -100, 100, SCREEN_HEIGHT, 0);  // Inverted Y for OLED
+
+  display.fillCircle(xPos, yPos, 3, SSD1306_WHITE);
+  display.display();
+
+  delay(100);
+}
